@@ -1,18 +1,18 @@
 /**
- @file FaBoRTC_PCF2129.h
- @brief This is a library for the FaBo RTC I2C Brick.
-
-   http://fabo.io/215.html
+ @file PCF2129.h
+ @brief This is a library for the PCF2129 RTC IC
 
    Released under APACHE LICENSE, VERSION 2.0
 
    http://www.apache.org/licenses/
 
- @author FaBo<info@fabo.io>
+   Forked from FaBo-PCF2129-Library - authored by FaBo <info@fabo.io>
+
+ @author Gavin Hurlbut <gjhurlgu@gmail.com>
 */
 
-#ifndef FABORTC_PCF2129_H
-#define FABORTC_PCF2129_H
+#ifndef PCF2129_H__
+#define PCF2129_H__
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -51,12 +51,12 @@ class DateTime {
 };
 
 /**
- @class FaBoRTC_PCF2129
- @brief FaBo RTC I2C Controll class
+ @class PCF2129
+ @brief PCF2129 RTC I2C Control class
 */
-class FaBoRTC_PCF2129 {
+class PCF2129 {
   public:
-    FaBoRTC_PCF2129(uint8_t addr = PCF2129_SLAVE_ADDRESS);
+    PCF2129(uint8_t addr = PCF2129_SLAVE_ADDRESS);
     bool searchDevice(void);
     void configure(void);
     uint8_t getSeconds(void);
@@ -88,4 +88,4 @@ class FaBoRTC_PCF2129 {
     void writeCtrl(uint8_t data);
 };
 
-#endif // FABORTC_PCF2129_H
+#endif // PCF2129_H__
