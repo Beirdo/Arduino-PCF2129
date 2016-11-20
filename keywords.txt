@@ -6,7 +6,7 @@
 # Class (KEYWORD1)
 #######################################
 
-FaBoRTC_PCF2129	KEYWORD1
+PCF2129	KEYWORD1
 DateTime	KEYWORD1
 
 #######################################
