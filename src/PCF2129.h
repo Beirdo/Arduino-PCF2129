@@ -15,7 +15,7 @@
 #define PCF2129_H__
 
 #include <Arduino.h>
-#include <Wire.h>
+#include <Wire1.h>
 
 #define PCF2129_SLAVE_ADDRESS 0x51 ///< I2C Slave Address
 
@@ -142,7 +142,7 @@ class DateTime {
 */
 class PCF2129 {
   public:
-    PCF2129(uint8_t addr = PCF2129_SLAVE_ADDRESS);
+    PCF2129(uint8_t addr = PCF2129_SLAVE_ADDRESS, uint8 irq = 0);
     bool searchDevice(void);
     void configure(void);
     uint8_t getSeconds(void);
@@ -164,12 +164,24 @@ class PCF2129 {
                  uint8_t hours, uint8_t minutes, uint8_t seconds);
     void set12mode(void);
     void set24mode(void);
+    uint8_t getBatteryLow(void);
+    uint8_t getPoll(void) { return m_poll; };
   private:
-    uint8_t _i2caddr;
     uint8_t bcdToDec(uint8_t value);
     uint8_t decToBcd(uint8_t value);
     uint8_t readI2c(uint8_t address);
     void writeI2c(uint8_t address, uint8_t data);
+    void ISR(void);
+
+    uint8_t m_i2caddr;
+    uint8_t m_control1;
+    uint8_t m_control2;
+    uint8_t m_control3;
+    uint8_t m_clkout;
+    uint8_t m_watchdog_ctl;
+    uint8_t m_timestp;
+
+    uint8_t m_poll;
 };
 
 #endif // PCF2129_H__

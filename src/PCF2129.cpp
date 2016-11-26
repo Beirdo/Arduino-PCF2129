@@ -16,9 +16,42 @@
 /**
  @brief Constructor
 */
-PCF2129::PCF2129(uint8_t addr) {
-  _i2caddr = addr;
-  Wire.begin();
+PCF2129::PCF2129(uint8_t addr, uint8_t irq) {
+  m_i2caddr = addr;
+  Wire1.begin();
+
+  m_watchdog_ctl = PCF2129_WATCHDG_CTL_TI_TP;
+  writeI2c(PCF2129_REG_WATCHDG_TIM_CTL, m_watchdog_ctl);
+
+  if (irq) {
+    m_control1 = PCF2129_CONTROL1_SI;
+  } else {
+    m_control1 = 0;
+  }
+  writeI2C(PCF2129_REG_CONTROL1, m_control1);
+
+  m_control2 = 0;
+  writeI2C(PCF2129_REG_CONTROL2, m_control2);
+
+  m_control3 = 0;
+  writeI2C(PCF2129_REG_CONTROL3, m_control3);
+
+  m_clkout = PCF2129_CLKOUT_CTL_COF0 | PCF2129_CLKOUT_CTL_COF1 |
+             PCF2129_CLKOUT_CTL_COF2;
+  writeI2C(PCF2129_REG_CLKOUT_CTL, m_clkout);
+  writeI2C(PCF2129_REG_CLKOUT_CTL, m_clkout | PCF2129_CLKOUT_CTL_OTPR);
+
+  m_timestp = PCF2129_TIMESTP_CTL_TSOFF;
+  writeI2C(PCF2129_REG_TIMESTP_CTL, m_timestp);
+
+  if (irq) {
+    attachInterrupt(digitalPinToInterrupt(irq), ISR, FALLING);
+  }
+}
+
+void PCF2129::ISR(void)
+{
+  m_poll = 1;
 }
 
 /**
@@ -27,7 +60,7 @@ PCF2129::PCF2129(uint8_t addr) {
  @retval false device error
 */
 bool PCF2129::searchDevice(void) {
-  return !(readI2c(_i2caddr) >> 7);
+  return !(readI2c(m_i2caddr) >> 7);
 }
 
 /**
@@ -176,18 +209,20 @@ void PCF2129::setYears(uint8_t years) {
  @param [out] DateTime DateTime 
 */
 DateTime PCF2129::now(void) {
-  Wire.beginTransmission(_i2caddr);
-  Wire.write(PCF2129_REG_SECONDS);
-  Wire.endTransmission();
-  Wire.requestFrom(_i2caddr, (uint8_t)7);
-  while(!Wire.available());
-  uint8_t seconds = bcdToDec(Wire.read());
-  uint8_t minutes = bcdToDec(Wire.read());
-  uint8_t hours = bcdToDec(Wire.read());
-  uint8_t days = bcdToDec(Wire.read());
-  Wire.read(); // blank read weekdays
-  uint8_t months = bcdToDec(Wire.read());
-  uint16_t years = bcdToDec(Wire.read()) + 2000;
+  m_poll = 0;
+  Wire1.setClock(400000L);
+  Wire1.beginTransmission(m_i2caddr);
+  Wire1.write(PCF2129_REG_SECONDS);
+  Wire1.endTransmission();
+  Wire1.requestFrom(m_i2caddr, (uint8_t)7);
+  while(!Wire1.available());
+  uint8_t seconds = bcdToDec(Wire1.read());
+  uint8_t minutes = bcdToDec(Wire1.read());
+  uint8_t hours = bcdToDec(Wire1.read());
+  uint8_t days = bcdToDec(Wire1.read());
+  Wire1.read(); // blank read weekdays
+  uint8_t months = bcdToDec(Wire1.read());
+  uint16_t years = bcdToDec(Wire1.read()) + 2000;
 
   return DateTime(years, months, days, hours, minutes, seconds);
 }
@@ -198,36 +233,38 @@ DateTime PCF2129::now(void) {
 */
 void PCF2129::setDate(uint16_t years, uint8_t months, uint8_t days,
                               uint8_t hours, uint8_t minutes, uint8_t seconds) {
-  Wire.beginTransmission(_i2caddr);
-  Wire.write(PCF2129_REG_SECONDS);
-  Wire.write(decToBcd(seconds) | PCF2129_SECONDS_OSF);
-  Wire.write(decToBcd(minutes));
-  Wire.write(decToBcd(hours));
-  Wire.write(decToBcd(days));
-  Wire.write(0x00);
-  Wire.write(decToBcd(months));
-  Wire.write(decToBcd(years - 2000));
-  Wire.endTransmission();
+  Wire1.setClock(400000L);
+  Wire1.beginTransmission(m_i2caddr);
+  Wire1.write(PCF2129_REG_SECONDS);
+  Wire1.write(decToBcd(seconds) | PCF2129_SECONDS_OSF);
+  Wire1.write(decToBcd(minutes));
+  Wire1.write(decToBcd(hours));
+  Wire1.write(decToBcd(days));
+  Wire1.write(0x00);
+  Wire1.write(decToBcd(months));
+  Wire1.write(decToBcd(years - 2000));
+  Wire1.endTransmission();
 }
 
 /**
  @brief Set to 12 hour mode
 */
 void PCF2129::set12mode(void) {
-  uint8_t ctrl;
-  ctrl = readI2c(PCF2129_REG_CONTROL1);
-  ctrl |= PCF2129_CONTROL1_12_24;
-  writeI2c(PCF2129_REG_CONTROL1, ctrl);
+  m_control1 |= PCF2129_CONTROL1_12_24;
+  writeI2c(PCF2129_REG_CONTROL1, m_control1);
 }
 
 /**
  @brief Set to 24 hour mode
 */
 void PCF2129::set24mode(void) {
-  uint8_t ctrl;
-  ctrl = readI2c(PCF2129_REG_CONTROL1);
-  ctrl &= ~(PCF2129_CONTROL1_12_24);
-  writeI2c(PCF2129_REG_CONTROL1, ctrl);
+  m_control1 &= ~(PCF2129_CONTROL1_12_24);
+  writeI2c(PCF2129_REG_CONTROL1, m_control1);
+}
+
+uint8_t PCF2129::getBatteryLow(void) {
+  uint8_t value = readI2c(PCF2129_REG_CONTROL3);
+  return !(!(value & PCF2129_CONTROL3_BLF));
 }
 
 ////////////////////////////////////////////////////////////////
@@ -256,12 +293,13 @@ uint8_t PCF2129::decToBcd(uint8_t value) {
  @param [out] data read data 
 */
 uint8_t PCF2129::readI2c(uint8_t address) {
-  Wire.beginTransmission(_i2caddr);
-  Wire.write(address);
-  Wire.endTransmission();
-  Wire.requestFrom(_i2caddr, (uint8_t)1);
-  while(!Wire.available());
-  return Wire.read();
+  Wire1.setClock(400000L);
+  Wire1.beginTransmission(m_i2caddr);
+  Wire1.write(address);
+  Wire1.endTransmission();
+  Wire1.requestFrom(m_i2caddr, (uint8_t)1);
+  while(!Wire1.available());
+  return Wire1.read();
 }
 
 /**
@@ -270,10 +308,11 @@ uint8_t PCF2129::readI2c(uint8_t address) {
  @param [in] data write data 
 */
 void PCF2129::writeI2c(uint8_t address, uint8_t data) {
-  Wire.beginTransmission(_i2caddr);
-  Wire.write(address);
-  Wire.write(data);
-  Wire.endTransmission();
+  Wire1.setClock(400000L);
+  Wire1.beginTransmission(m_i2caddr);
+  Wire1.write(address);
+  Wire1.write(data);
+  Wire1.endTransmission();
 }
 
 ////////////////////////////////////////////////////////////////
